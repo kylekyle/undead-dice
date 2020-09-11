@@ -1,0 +1,23 @@
+{
+  "name": "zombie-dice",
+  "version": "1.0.0",
+  "description": "",
+  "private": true,
+  "dependencies": {
+    "cannon": "^0.6.2",
+    "jquery": "^3.5.1",
+    "orbit-controls-es6": "^2.0.1",
+    "three": "^0.120.1"
+  },
+  "devDependencies": {
+    "webpack": "^4.44.1",
+    "webpack-cli": "^3.3.12",
+    "webpack-dev-server": "^3.11.0"
+  },
+  "scripts": {
+    "start": "webpack-dev-server --open"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
