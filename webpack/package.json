@@ -1,10 +1,11 @@
 {
-  "name": "zombie-dice",
+  "name": "undead-dice",
   "version": "1.0.0",
   "description": "",
   "private": true,
   "dependencies": {
     "cannon": "^0.6.2",
+    "fontfaceonload": "^1.0.2",
     "jquery": "^3.5.1",
     "orbit-controls-es6": "^2.0.1",
     "three": "^0.120.1"

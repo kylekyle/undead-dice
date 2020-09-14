@@ -3,181 +3,126 @@ import * as THREE from 'three';
 import * as CANNON from 'cannon';
 import OrbitControls from 'orbit-controls-es6';
 
-var diceBody, scene,
-    camera, renderer,
-    dice, world,
-    controls,
-    WIDTH = 600, HEIGHT = 400;
+import die from './die';
 
-/**
- * Inits the scene,
- * sets the cannon world,
- * sets the camera,
- * sets the WebGL render,
- */
-function init_scene() {
-    scene = new THREE.Scene();
+function add_plane(scene, world) {
+  const plane = new THREE.Mesh(
+    new THREE.PlaneGeometry(30, 50, 10, 10),
+    new THREE.MeshPhongMaterial({color: 0xd0d0d0})
+  );
 
-    world = new CANNON.World();
-    world.gravity.set(0, -10, 0);
+  plane.rotation.x = -Math.PI * 0.5;
+  plane.receiveShadow = true;
+  scene.add(plane);
 
-    camera = new THREE.PerspectiveCamera(80, WIDTH / HEIGHT, 0.1, 1000);
-    camera.position.set(-1, 8, -1);
-    camera.lookAt(new THREE.Vector3(-0.5, 0, -0.5));
-
-    renderer = new THREE.WebGLRenderer({antialias: true});
-    renderer.shadowMap.enabled = true;
-    renderer.domElement.id = 'dice_canvas';
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    renderer.setSize(window.innerWidth, window.innerHeight);
-
-    $('body').append(renderer.domElement);
+  world.add(new CANNON.Body({
+    shape: new CANNON.Plane(),
+    mass: 0,
+    quaternion: new CANNON.Quaternion().setFromEuler(-Math.PI * 0.5, 0, 0)
+  }));
 }
 
-/**
- * Adds the plane in which the dice will roll.
- */
-function add_plane() {
-    var plane = new THREE.Mesh(
-        new THREE.PlaneGeometry(30, 50, 10, 10),
-        new THREE.MeshPhongMaterial({color: 0xd0d0d0})
-    );
+function add_light(scene) {
+  // const light = new THREE.DirectionalLight(0xffffff);
+  // light.position.set(0, 1, 1).normalize();
+  // scene.add(light);
+  // scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+  let ambient = new THREE.AmbientLight("#ffffff", 0.3);
+  scene.add(ambient);
 
-    plane.rotation.x = -Math.PI * 0.5;
-    plane.receiveShadow = true;
-    scene.add(plane);
+	let directionalLight = new THREE.DirectionalLight("#ffffff", 0.1);
+	directionalLight.position.x = -5;
+	directionalLight.position.y = 5;
+  directionalLight.position.z = 5;
+  directionalLight.castShadow = true;
+	scene.add(directionalLight);
 
-    world.add(new CANNON.Body({
-        shape: new CANNON.Plane(),
-        mass: 0,
-        quaternion: new CANNON.Quaternion().setFromEuler(-Math.PI * 0.5, 0, 0)
-    }));
+	let light = new THREE.SpotLight(0xefdfd5, 0.75);
+	light.position.y = 10;
+	light.target.position.set(0, 0, 0);
+	light.shadow.camera.near = 5;
+	light.shadow.camera.far = 11;
+	light.shadow.mapSize.width = 24;
+	light.shadow.mapSize.height = 24;
+	scene.add(light);
 }
 
-/**
- * Creates the dice geometry.
- */
-function add_icosahedron_geometry() {
-    var geometry = new THREE.IcosahedronGeometry(1),
-        material = new THREE.MeshPhongMaterial({
-            map: new THREE.TextureLoader().load('/textures/d20.png'),
-            specular: 0x303030,
-            shininess: 1005
-        });
+function roll(diceBody) {
+  var angle = ((Math.random() - 0.5) * Math.PI * 2) * 0.1;
 
-    geometry.faceVertexUvs[0] = [];
+  diceBody.position.set(0, 2, -5);
+  diceBody.velocity.set(Math.sin(angle) * 7, -1, Math.cos(angle) * 9);
 
-    for (let i = 0; i < 10; i++) {
-        geometry.faceVertexUvs[0][2 * i] = [
-            new THREE.Vector2(i * 74 / 1024, 0),
-            new THREE.Vector2((i + 1) * 74 / 1024, 0),
-            new THREE.Vector2((i * 74 + 37) / 1024, 1)];
-        geometry.faceVertexUvs[0][2 * i + 1] = [
-            new THREE.Vector2((i * 74 + 37) / 1024, 1),
-            new THREE.Vector2((i * 74 + 37 + 74) / 1024, 1),
-            new THREE.Vector2((i + 1) * 74 / 1024, 0)];
-    }
+  diceBody.angularVelocity.set(
+    (0.5 + Math.random() * 0.1) * Math.PI,
+    (0.5 + Math.random() * 0.1) * Math.PI,
+    (0.5 + Math.random() * 0.1) * Math.PI
+  );
 
-    //Here i set the OrbitControls so you can rotate the scene.
-    controls = new OrbitControls(camera);
-    dice = new THREE.Mesh(geometry, material);
-    dice.castShadow = true;
-    scene.add(dice);
-
-    diceBody = new CANNON.Body({
-        mass: 100,
-        shape: gen_polyhedron(dice.geometry),
-        material: new CANNON.Material({
-            friction: 100,
-            restitution: 1
-        })
-    });
-    diceBody.angularDamping = 0.5;
-
-    world.add(diceBody);
+  diceBody.quaternion.setFromEuler(
+    Math.random() * 2 * Math.PI,
+    Math.random() * 2 * Math.PI,
+    Math.random() * 2 * Math.PI
+  );
 }
 
-/**
- * Adds light to the scene.
- */
-function add_light() {
-    var light = new THREE.DirectionalLight(0xffffff);
-    light.position.set(0, 1, 1).normalize();
-    scene.add(light);
-    scene.add(new THREE.AmbientLight(0xffffff, 0.8));
-}
-
-/**
- * Creates the dice body based on a passed geometry.
- *
- * @param geometry
- * @returns {*}
- */
-function gen_polyhedron(geometry) {
-    var vertices = [], faces = [],
-        i = 0, v = null, f = null;
-
-    for (i = 0; i < geometry.vertices.length; i++) {
-        v = geometry.vertices[i];
-        vertices[i] = new CANNON.Vec3(v.x, v.y, v.z);
-    }
-    for (i = 0; i < geometry.faces.length; i++) {
-        f = geometry.faces[i];
-        faces[i] = [f.a, f.b, f.c];
-    }
-
-    return new CANNON.ConvexPolyhedron(vertices, faces);
-}
-
-/**
- * Rolls the dice according to a defined angle.
- */
-function roll() {
-    var angle = ((Math.random() - 0.5) * Math.PI * 2) * 0.1;
-
-    diceBody.position.set(0, 2, -5);
-    diceBody.velocity.set(Math.sin(angle) * 7, -1, Math.cos(angle) * 9);
-
-    diceBody.angularVelocity.set((0.5 + Math.random() * 0.1) * Math.PI,
-        (0.5 + Math.random() * 0.1) * Math.PI,
-        (0.5 + Math.random() * 0.1) * Math.PI);
-
-    diceBody.quaternion.setFromEuler(
-        Math.random() * 2 * Math.PI,
-        Math.random() * 2 * Math.PI,
-        Math.random() * 2 * Math.PI);
-}
-
-/**
- * Renders the dice according to the scene.
- */
-function render() {
-    world.step(100 / 3000);
-    dice.position.copy(diceBody.position);
-    dice.quaternion.copy(diceBody.quaternion);
-    renderer.render(scene, camera);
-
-    requestAnimationFrame(render);
-
-};
-
-/**
- * Inits the js to execute the rolling dice.
- */
 $(function () {
-    init_scene();
-    add_plane();
-    add_icosahedron_geometry();
-    add_light();
+  const WIDTH = 600;
+  const HEIGHT = 400;
 
-    roll();
+  const scene = new THREE.Scene();
+  const world = new CANNON.World();
+  world.gravity.set(0, -9.8, 0);
+  
+  const camera = new THREE.PerspectiveCamera(80, WIDTH / HEIGHT, 0.1, 1000);
+  camera.position.set(-1, 8, -1);
+  camera.lookAt(new THREE.Vector3(-0.5, 0, -0.5));
+  const controls = new OrbitControls(camera);
 
-    controls.update();
-    requestAnimationFrame(render);
+  const renderer = new THREE.WebGLRenderer({antialias: true});
+  renderer.shadowMap.enabled = true;
+  renderer.domElement.id = 'undead_dice';
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.setSize(window.innerWidth, window.innerHeight);
 
-    $('#dice_canvas').click(function () {
-        roll();
-        console.log(dice.position);
+  $('body').append(renderer.domElement);
+
+  add_plane(scene, world);
+  const objects = Array.from({length: 10}, die);
+
+  objects.forEach(object => {
+    scene.add(object);
+    world.add(object.body);
+  });
+
+  add_light(scene);
+
+  objects.forEach(object => roll(object.body));
+  controls.update();
+
+  function render() {
+    world.step(100 / 3000);
+
+    objects.forEach(object => {
+      object.position.copy(object.body.position);
+      object.quaternion.copy(object.body.quaternion);
     });
 
+    renderer.render(scene, camera);
+    requestAnimationFrame(render);
+  };
+
+  requestAnimationFrame(render);
+
+  $('#undead_dice').click(function () {
+    objects.forEach(object => roll(object.body));
+  });
+
+  function onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize( window.innerWidth, window.innerHeight );
+  }
+  
+  window.addEventListener('resize', onWindowResize, false);
 });
