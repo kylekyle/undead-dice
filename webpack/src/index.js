@@ -4,6 +4,9 @@ import * as CANNON from 'cannon';
 import OrbitControls from 'orbit-controls-es6';
 
 import die from './die';
+import AleaRandom from 'seedrandom/lib/alea';
+
+let random = new AleaRandom();
 
 function add_plane(scene, world) {
   const plane = new THREE.Mesh(
@@ -48,21 +51,21 @@ function add_light(scene) {
 }
 
 function roll(diceBody) {
-  var angle = ((Math.random() - 0.5) * Math.PI * 2) * 0.1;
+  var angle = ((random() - 0.5) * Math.PI * 2) * 0.1;
 
   diceBody.position.set(0, 2, -5);
   diceBody.velocity.set(Math.sin(angle) * 7, -1, Math.cos(angle) * 9);
 
   diceBody.angularVelocity.set(
-    (0.5 + Math.random() * 0.1) * Math.PI,
-    (0.5 + Math.random() * 0.1) * Math.PI,
-    (0.5 + Math.random() * 0.1) * Math.PI
+    (0.5 + random() * 0.1) * Math.PI,
+    (0.5 + random() * 0.1) * Math.PI,
+    (0.5 + random() * 0.1) * Math.PI
   );
 
   diceBody.quaternion.setFromEuler(
-    Math.random() * 2 * Math.PI,
-    Math.random() * 2 * Math.PI,
-    Math.random() * 2 * Math.PI
+    random() * 2 * Math.PI,
+    random() * 2 * Math.PI,
+    random() * 2 * Math.PI
   );
 }
 
@@ -88,7 +91,10 @@ $(function () {
   $('body').append(renderer.domElement);
 
   add_plane(scene, world);
-  const objects = Array.from({length: 10}, die);
+
+  const objects = Array.from({length: 20}, () => 
+    die(THREE.BoxGeometry, ['fa-brain','2','3','4','5','6'])
+  );
 
   objects.forEach(object => {
     scene.add(object);
