@@ -23,7 +23,7 @@ const dieMaterials = dieIcons.map(text => {
   // FontAwesome doesn't load until we try to make an icon but since
   // it's not loaded yet, the icon will not appear  ¯\_(ツ)_/¯
   context.globalAlpha = 0; 
-  context.font = '900 64px "Font Awesome 5 Free"';
+  context.font = '900 80px "Font Awesome 5 Free"';
   context.fillText("?", canvas.width/2, canvas.height/2);
 
   const texture = new THREE.CanvasTexture(canvas);
@@ -37,8 +37,8 @@ const dieMaterials = dieIcons.map(text => {
         const charCode = String.fromCharCode(`0x${unicode}`);
         
         context.globalAlpha = 1;
-        context.fillText(charCode, canvas.width/2, canvas.height/2 + 25);
-        
+        context.fillText(charCode, canvas.width/2, canvas.height/2 + 30);
+
         // tell the renderer that this texture has changed
         texture.needsUpdate = true;
       });
@@ -60,17 +60,21 @@ const toShape = geometry => {
   return new CANNON.ConvexPolyhedron(vertices, faces);
 }
 
-export default () => {
+export default () => {  
   const geometry = new THREE.BoxGeometry(1,1,1);
-  
-  const die = new THREE.Mesh(
-    geometry, 
-    new THREE.MeshBasicMaterial({color: 'yellow'})
-  );
-  
-  die.add(new THREE.Mesh(geometry, dieMaterials));
-  die.castShadow = true;
 
+  // the colored box
+  const die = new THREE.Mesh(
+    geometry,
+    new THREE.MeshStandardMaterial({color: 'yellow'})
+  );
+
+  die.castShadow = true;
+  
+  // the icons
+  die.add(new THREE.Mesh(geometry, dieMaterials));
+
+  // the edges
   die.add(
     new THREE.LineSegments( 
       new THREE.EdgesGeometry(die.geometry), 

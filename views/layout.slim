@@ -1,0 +1,23 @@
+doctype html
+
+html
+  head
+    meta charset="UTF-8"
+    title Undead Dice
+
+    link rel="stylesheet" href="/css/bootstrap.min.css"
+    link rel="stylesheet" href="/css/undead-dice.css"
+  body
+    .container.h-75
+      .row.h-100.align-items-center 
+        .col-8.offset-2
+          br
+          ==yield
+      .row.h-20
+        .col-12.h-100.text-center
+          span.text-muted.fixed-bottom.footer
+            | Maintained by 
+            a href="mailto:kylejking@gmail.com" Kyle King
+            | . Source code on 
+            a href="https://github.com/kylekyle/undead-dice" Github
+            | .
