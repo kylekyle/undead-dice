@@ -21,3 +21,52 @@ html, body {
   height: 60px;
   line-height: 60px;
 }
+
+#nav {
+  position: absolute;
+  text-align: center;
+  padding: 0px;
+  margin: 0px;
+  right: 0px;
+  width: 75px;
+}
+
+.circle {
+  width: 50px;
+  height: 50px;
+  margin-top: 5px;
+  border-radius: 50%;
+  display: inline-flex;
+  border: 5px solid #111111;
+  background-color: transparent;
+}
+
+#nav b {
+  margin: auto;
+  font-size: 1.5em;
+  font-weight: bold;
+  font-variant: small-caps;
+  font-family: "courier new";
+}
+
+#nav i {
+  margin: auto;
+  font-size: 2.5em;
+}
+
+.queued {
+  margin-top: 10px;
+}
+
+#roll {
+  animation: spin 4s infinite linear;
+}
+
+@keyframes spin { 100% { -webkit-transform: rotate(360deg); transform:rotate(360deg); } }
+
+/* #roll i {
+  font-size: 4em;
+  font-weight: bold;
+  line-height: 50px;
+  transform: rotate(90deg) translate(-0px,-5px);
+} */

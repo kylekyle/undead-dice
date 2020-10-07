@@ -1,16 +1,13 @@
 const path = require('path');
+const webpack = require('webpack');
 const CopyPlugin = require('copy-webpack-plugin');
 
 module.exports = {
 	devServer: {
+		injectClient: false,
 		disableHostCheck: true,
 		contentBase: '../public/',
-		publicPath: '/js/',
-		headers: {
-			"Access-Control-Allow-Origin": "*",
-			"Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, PATCH, OPTIONS",
-			"Access-Control-Allow-Headers": "X-Requested-With, content-type, Authorization"
-		}
+		publicPath: '/js/'
 	},
 	plugins: [
 		new CopyPlugin({
@@ -18,7 +15,11 @@ module.exports = {
 				to: '../css/', 
 				from: 'node_modules/bootstrap/dist/css/bootstrap.min.css'
 			}]
-		})
+		}),
+		new webpack.ProvidePlugin({
+      $: 'jquery',
+      jQuery: 'jquery'
+    })
 	],
 	output: {
 		filename: '[name].min.js',
