@@ -7,6 +7,9 @@ html
     link href="/css/undead-dice.css" rel="stylesheet"
   body 
     div#nav
+      .circle#reset
+        i.fa.fa-redo
+
       .circle#roll
         i.fa.fa-dice-d6
 
@@ -15,4 +18,4 @@ html
 
       div#queue
 
-    script src="/js/game.min.js"
+    script data-queue=queue data-board=board src="/js/game.min.js"

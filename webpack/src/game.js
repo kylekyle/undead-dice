@@ -6,14 +6,8 @@ import * as CANNON from 'cannon';
 import { Interaction } from 'three.interaction';
 
 import OrbitControls from 'orbit-controls-es6';
-// import AleaRandom from 'seedrandom/lib/alea';
+import AleaRandom from 'seedrandom/lib/alea';
 import MessageBus from 'message-bus-client';
-
-const random = Math.random;
-
-let randToFace = (rand, sides) => {
-  return Math.floor(random * (max - min + 1)) + min;
-}
 
 MessageBus.baseUrl = `${location.pathname}/`;
 
@@ -62,19 +56,20 @@ function add_light(scene) {
 	scene.add(light);
 }
 
-function roll(diceBody) {
+function roll(seed, body) {
+  const random = AleaRandom(seed);
   var angle = ((random() - 0.5) * Math.PI * 2) * 0.1;
 
-  diceBody.position.set(0, 2, -5);
-  diceBody.velocity.set(Math.sin(angle) * 7, -1, Math.cos(angle) * 9);
+  body.position.set(0, 2, -5);
+  body.velocity.set(Math.sin(angle) * 7, -1, Math.cos(angle) * 9);
 
-  diceBody.angularVelocity.set(
+  body.angularVelocity.set(
     (0.5 + random() * 0.1) * Math.PI,
     (0.5 + random() * 0.1) * Math.PI,
     (0.5 + random() * 0.1) * Math.PI
   );
 
-  diceBody.quaternion.setFromEuler(
+  body.quaternion.setFromEuler(
     random() * 2 * Math.PI,
     random() * 2 * Math.PI,
     random() * 2 * Math.PI
@@ -85,9 +80,9 @@ $(function () {
   const WIDTH = 600;
   const HEIGHT = 400;
 
-// console.log(script[data-id="MyUniqueName"][data-token]
-
   const dice = [];
+  let diceWithUnknownPositions = []
+
   const scene = new THREE.Scene();
   add_light(scene);
 
@@ -105,7 +100,7 @@ $(function () {
   const renderer = new THREE.WebGLRenderer({antialias: true});
   renderer.shadowMap.enabled = true;
   renderer.domElement.id = 'undead_dice';
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap; 
   renderer.setSize(window.innerWidth, window.innerHeight);
 
   // enable interaction callbacks
@@ -113,13 +108,60 @@ $(function () {
 
   $('body').append(renderer.domElement);
 
+  const addDieToQueue = color => {
+    $('#queue').append(
+      $('<div>', { class: 'queued' }).append(
+        $('<i>', { class: 'fa fa-dice-d6' }).css('color', color)
+      )
+    );
+  };
+  
+  const addDieToScene = (id, color) => {
+    dice[id] = createDie(color);
+
+    scene.add(dice[id].mesh);
+    world.add(dice[id].body);
+
+    dice[id].mesh.on('click', event => {
+      const shift = event.data.originalEvent.shiftKey;
+
+      if (shift) {
+        console.log(event.target);
+      } else {
+        $.post(location.pathname, { action: 'reroll', id: id })
+      }
+    });
+
+    return dice[id];
+  };
+
+  $('script[data-queue]').data('queue').forEach(addDieToQueue);
+
+  const board = $('script[data-board]').data('board');
+
+  for (const [id, params] of Object.entries(board)) {
+    if (params.position && params.quaternion) {
+      const die = addDieToScene(id, params.color);
+
+      // put the die where it belongs
+      die.body.position.set(...params.position);
+      die.body.quaternion.set(...params.quaternion);
+      
+      // make the die immovable
+      die.body.mass = 0;
+      die.body.updateMassProperties();
+    } else {
+      console.log(`Error: die ${id} has no position information!`);
+    }
+  }
+
   function render() {
     world.step(1/30);
-
-    dice.forEach(die => {
-      die.position.copy(die.userData.body.position);
-      die.quaternion.copy(die.userData.body.quaternion);
-    });
+    
+    for (let die of Object.values(dice)) {
+      die.mesh.position.copy(die.body.position);
+      die.mesh.quaternion.copy(die.body.quaternion);
+    }
 
     renderer.render(scene, camera);
     requestAnimationFrame(render);
@@ -127,9 +169,13 @@ $(function () {
 
   requestAnimationFrame(render);
 
+  var windowHeight = window.innerHeight;
+  var tanFOV = Math.tan(((Math.PI/180)*camera.fov/2));
+
   function onWindowResize() {
-    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.fov = (360/Math.PI)*Math.atan(tanFOV*(window.innerHeight/windowHeight));
     camera.updateProjectionMatrix();
+    camera.lookAt(scene.position);
     renderer.setSize( window.innerWidth, window.innerHeight );
   }
   
@@ -138,31 +184,62 @@ $(function () {
   MessageBus.subscribe(location.pathname, message => {
     console.log("Received message:", message);
 
-    if (message.action == 'pull') {      
-      $('#queue').append(
-        $('<div>', { class: 'queued' }).append(
-          $('<i>', { class: 'fa fa-dice-d6' }).css({
-            color: message.die.color
-          })
-        )
-      );
+    if (message.action == 'reset') {
+      for (const die of Object.values(dice)) {
+        world.remove(die.body);
+        scene.remove(die.mesh);
+      }
+
+      $('#queue').empty();
+      dice.splice(0, dice.length);
+
+   } else if (message.action == 'pull') {      
+      addDieToQueue(message.color);
+
     } else if (message.action == 'roll') {
       $('#queue').empty();
       
-      message.dice.forEach(result => {
-        const die = createDie(result.id, result.color);
+      message.dice.forEach(params => {
+        const id = params.id;
+        const color = params.color;
+        const die = addDieToScene(id, color);
 
-        scene.add(die);
-        world.add(die.userData.body);
-        dice.push(die);
+        // when the die stops moving, never let it move again
+        const sleepCallback = event => {
+          die.body.mass = 0;
+          die.body.updateMassProperties();
+          die.body.removeEventListener(sleepCallback);
 
-        roll(die.userData.body);
+          // so when we roll a die, we need to send its final position
+          // to the server so that it can recreate the scene for new users
+          // the user that rolls the die reports its position to the server
+          if (diceWithUnknownPositions.includes(id)) {
+            $.post(location.pathname, {
+              id: id,
+              action: 'diePositionReport',
+              position: die.mesh.position.toArray(),
+              quaternion: die.mesh.quaternion.toArray()
+            });
 
-        die.on('click', () => 
-          $.post(location.pathname, { action: 'reroll', id: result.id })
-        );
+            const index = diceWithUnknownPositions.indexOf(id);
+            diceWithUnknownPositions.splice(index, 1);
+          }
+        };
+
+        die.body.addEventListener("sleep", sleepCallback);
+        roll(id, die.body);
       });
+
+    } else if (message.action == 'remove') {
+      const die = dice[message.id];
+      world.remove(die.body);
+      scene.remove(die.mesh);
+      delete dice[message.id];
     }
+  });
+
+  $('#reset').click(() => {
+    $.post(location.pathname, { action: 'reset' });
   });
 
   $('#pull').click(() => {
@@ -170,13 +247,8 @@ $(function () {
   });
 
   $('#roll').click(() => {
-    
-    $.post(location.pathname, { action: 'roll' });
+    $.post(location.pathname, { action: 'roll' }, newDiceIds => {
+      diceWithUnknownPositions = newDiceIds;
+    });
   });
-
-  // $('#undead_dice').click(function () {
-  //   objects.forEach(object => roll(object.body));
-  // });
-
-  setInterval(Math.random())
 });

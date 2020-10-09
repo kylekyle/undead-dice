@@ -9,7 +9,6 @@ require 'dotenv/load'
 require 'securerandom'
 
 GAMES = Concurrent::Map.new
-
 MessageBus.configure(backend: :memory)
 
 class UndeadDice < Roda
@@ -50,7 +49,7 @@ class UndeadDice < Roda
 
   def self.new_game
     { 
-      board: [], 
+      board: {}, 
       queue: [],
       active: Time.now,
       lock: Concurrent::Semaphore.new(1)
@@ -96,49 +95,87 @@ class UndeadDice < Roda
       r.message_bus
       game = GAMES[code]
 
+      # this is very probably unecessary, but since two users could
+      # modify the game state simultaneously, it seems prudent
+      game[:lock].acquire
+
       r.is do
-        r.get do 
-          render :game
+        r.get do
+          render :game, locals: { 
+            board: game[:board].to_json, 
+            queue: game[:queue].to_json 
+          }
         end
         
         r.post do
-          typecast_params.nonempty_str! 'action'
-          
-          # this is very probably unecessary, but since two users could
-          # modify the game state simultaneously, it seems prudent
-          game[:lock].acquire
+          case action = typecast_params.nonempty_str!('action')
 
-          case r.POST['action']
-          
+          when 'reset'
+            game[:queue].clear
+            game[:board].clear
+            MessageBus.publish("/#{code}", { action: 'reset' })            
+
           when 'pull'
-            die = {
-              id: SecureRandom.hex,
-              color: [:red, :green, :yellow].sample
-            }
+            # is there no easy way to do a weighted sample in ruby?!
+            color = ([:red]*3 + [:yellow]*4 + [:green]*6).sample
+            game[:queue] << color
 
-            game[:queue] << die
-            MessageBus.publish "/#{code}", { die: die, action: :pull }
+            MessageBus.publish("/#{code}", {
+              action: 'pull', color: color
+            })
           
           when 'roll' 
-            game[:queue].each do |die|
-              die[:face] = rand(0..5)
-              game[:board] << die
+            newDice = game[:queue].map do |color|
+              id = SecureRandom.hex
+              game[:board][id] = { color: color }
+              { id: id, color: color }
             end
             
             MessageBus.publish "/#{code}", { 
-              action: :roll, dice: game[:queue]
+              action: 'roll', 
+              dice: newDice
             }
 
             game[:queue].clear
+            r.halt(200, newDice.map {|die| die[:id]})
           
+          when 'reroll'
+            id = typecast_params.nonempty_str! 'id'
+
+            unless game[:board][id]
+              r.halt 400, "no die with id #{id} in play" 
+            end
+
+            color = game[:board][id][:color]
+            game[:queue] << color
+            game[:board].delete(id)
+
+            MessageBus.publish "/#{code}", { 
+              action: 'remove', id: id
+            }
+
+            MessageBus.publish "/#{code}", { 
+              action: 'pull', color: color
+            }
+
+          when 'diePositionReport'
+            id = typecast_params.nonempty_str! 'id'
+            position = typecast_params.array! :float, 'position'
+            quaternion = typecast_params.array! :float, 'quaternion'
+            r.halt 400 unless game[:board][id]
+
+            game[:board][id][:position] = position
+            game[:board][id][:quaternion] = quaternion
+
           else
-            r.halt 400, "unreconized action '#{r.POST['action']}'"
+            r.halt 400, "unreconized action '#{action}'"
           end
 
           'done'
-        ensure 
-          game[:lock].release
         end
+            
+      ensure 
+        game[:lock].release
       end
     end
   end

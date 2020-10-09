@@ -74,44 +74,45 @@ const toShape = geometry => {
   return new CANNON.ConvexPolyhedron(vertices, faces);
 }
 
-export default (id, color) => {  
+export default color => {  
   const geometry = new THREE.BoxGeometry(1,1,1);
 
   // the colored box
-  const die = new THREE.Mesh(
+  const mesh = new THREE.Mesh(
     geometry,
     new THREE.MeshStandardMaterial({color: color})
   );
   
-  die.castShadow = true;
+  mesh.castShadow = true;
   
   // the icons
-  die.add(new THREE.Mesh(geometry, dieMaterials(color)));
+  mesh.add(new THREE.Mesh(geometry, dieMaterials(color)));
 
   // the edges
-  die.add(
+  mesh.add(
     new THREE.LineSegments( 
-      new THREE.EdgesGeometry(die.geometry),
+      new THREE.EdgesGeometry(mesh.geometry),
       new THREE.LineBasicMaterial({ 
         linewidth: 1, color: 'darkgray'
       })
     )
   );
 
-  die.userData = {
-    id: id, 
-    body: new CANNON.Body({
-      mass: 100,
-      shape: toShape(geometry),
-      material: new CANNON.Material({
-        friction: 100,
-        restitution: 1
-      }),
-      sleepSpeedLimit: 0.5,
-      angularDamping: 0.5,
-      allowSleep: true
-    }), 
-  };
+  const body = new CANNON.Body({
+    mass: 100,
+    shape: toShape(geometry),
+    material: new CANNON.Material({
+      friction: 100,
+      restitution: 1
+    }),
+    angularDamping: 0.5,
+    allowSleep: true,
+    sleepTimeLimit: 1,
+    sleepSpeedLimit: 0.1,
+  });
 
-  return die;
+  return { 
+    mesh: mesh, 
+    body: body 
+  };
 };
