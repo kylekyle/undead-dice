@@ -22,8 +22,6 @@ GEM
     puma (5.0.0)
       nio4r (~> 2.0)
     rack (2.2.3)
-    rack-cors (1.1.1)
-      rack (>= 2.0.0)
     rb-fsevent (0.10.4)
     rb-inotify (0.10.1)
       ffi (~> 1.0)
@@ -51,7 +49,6 @@ DEPENDENCIES
   dotenv
   pry-remote
   puma
-  rack-cors
   rerun
   roda
   roda-message_bus
@@ -59,7 +56,7 @@ DEPENDENCIES
   slim
 
 RUBY VERSION
-   ruby 2.7.1p83
+   ruby 2.7.2p137
 
 BUNDLED WITH
    2.1.4

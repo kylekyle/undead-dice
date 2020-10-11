@@ -17,9 +17,11 @@ module.exports = {
 			}]
 		}),
 		new webpack.ProvidePlugin({
-      $: 'jquery',
-      jQuery: 'jquery'
-    })
+			$: 'jquery',
+			jQuery: 'jquery',
+			THREE: 'three',
+			CANNON: 'cannon'
+		})
 	],
 	output: {
 		filename: '[name].min.js',

@@ -89,14 +89,14 @@ export default color => {
   mesh.add(new THREE.Mesh(geometry, dieMaterials(color)));
 
   // the edges
-  mesh.add(
-    new THREE.LineSegments( 
-      new THREE.EdgesGeometry(mesh.geometry),
-      new THREE.LineBasicMaterial({ 
-        linewidth: 1, color: 'darkgray'
-      })
-    )
-  );
+  // mesh.add(
+  //   new THREE.LineSegments( 
+  //     new THREE.EdgesGeometry(mesh.geometry),
+  //     new THREE.LineBasicMaterial({ 
+  //       linewidth: 1, color: 'darkgray'
+  //     })
+  //   )
+  // );
 
   const body = new CANNON.Body({
     mass: 100,
@@ -108,7 +108,7 @@ export default color => {
     angularDamping: 0.5,
     allowSleep: true,
     sleepTimeLimit: 1,
-    sleepSpeedLimit: 0.1,
+    sleepSpeedLimit: 0.1
   });
 
   return { 
