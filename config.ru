@@ -56,19 +56,11 @@ class UndeadDice < Roda
     }
   end
 
-  # TODO: delete this
-  GAMES['test'] = new_game()
-
   route do |r|
     r.public
 
     r.root do 
       view :home
-    end
-
-    r.on 'debug' do 
-      puts ENV['SESSION_SECRET']
-      session.map{|k,v| "#{k}: #{v}"}.join('<br>')
     end
 
     r.on 'new' do 
