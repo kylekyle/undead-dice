@@ -4,10 +4,10 @@
   "description": "",
   "private": true,
   "dependencies": {
-    "cannon": "^0.6.2",
     "fontfaceonload": "^1.0.2",
     "jquery": "^3.5.1",
     "message-bus-client": "^3.3.0",
+    "oimo": "^1.0.9",
     "orbit-controls-es6": "^2.0.1",
     "seedrandom": "^3.0.5",
     "three": "^0.120.1",

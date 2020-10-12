@@ -1,6 +1,5 @@
 import $ from 'jquery';
 import * as THREE from 'three';
-import * as CANNON from 'cannon';
 import fontfaceonload from 'fontfaceonload';
 
 const DICE = {
@@ -23,9 +22,10 @@ const DICE = {
   ]
 }
 
+const geometry = new THREE.BoxGeometry(1,1,1);
 const iconMetadata = $.getJSON( "/fontawesome/metadata/icons.json");
 
-const dieMaterials = color => DICE[color].map(text => {
+const dieMaterial = color => DICE[color].map(text => {
   const context = document.createElement('canvas').getContext('2d');
   
   const canvas = context.canvas;
@@ -62,31 +62,24 @@ const dieMaterials = color => DICE[color].map(text => {
   return new THREE.MeshStandardMaterial({map: texture, transparent: true});
 });
 
-const toShape = geometry => {
-  const vertices = geometry.vertices.map(vertex =>
-    new CANNON.Vec3(vertex.x, vertex.y, vertex.z)
-  );
-
-  const faces = geometry.faces.map(face =>
-    [face.a, face.b, face.c]
-  );
-  
-  return new CANNON.ConvexPolyhedron(vertices, faces);
-}
-
 export default color => {  
-  const geometry = new THREE.BoxGeometry(1,1,1);
-
-  // the colored box
-  const mesh = new THREE.Mesh(
-    geometry,
-    new THREE.MeshStandardMaterial({color: color})
-  );
-  
-  mesh.castShadow = true;
+  const specs = { 
+    move: true,
+    // put the die below the board until it is rolled, 
+    // otherwise we see it flicker atop the board
+    pos: [0,-1,0], 
+    size: [1,1,1],
+    // the colored box
+    mesh: new THREE.Mesh( 
+      geometry,
+      new THREE.MeshStandardMaterial({color: color})
+    )
+  };
+  console.log("mesh color", color)
+  specs.mesh.castShadow = true;
   
   // the icons
-  mesh.add(new THREE.Mesh(geometry, dieMaterials(color)));
+  specs.mesh.add(new THREE.Mesh(geometry, dieMaterial(color)));
 
   // the edges
   // mesh.add(
@@ -97,22 +90,6 @@ export default color => {
   //     })
   //   )
   // );
-
-  const body = new CANNON.Body({
-    mass: 100,
-    shape: toShape(geometry),
-    material: new CANNON.Material({
-      friction: 100,
-      restitution: 1
-    }),
-    angularDamping: 0.5,
-    allowSleep: true,
-    sleepTimeLimit: 1,
-    sleepSpeedLimit: 0.1
-  });
-
-  return { 
-    mesh: mesh, 
-    body: body 
-  };
+  
+  return specs;
 };

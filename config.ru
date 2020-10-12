@@ -56,6 +56,10 @@ class UndeadDice < Roda
     }
   end
 
+  if ENV['RACK_ENV'] == 'development'
+    GAMES['test'] = self.new_game 
+  end
+
   route do |r|
     r.public
 
