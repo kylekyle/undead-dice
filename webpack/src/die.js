@@ -75,7 +75,7 @@ export default color => {
       new THREE.MeshStandardMaterial({color: color})
     )
   };
-  console.log("mesh color", color)
+
   specs.mesh.castShadow = true;
   
   // the icons

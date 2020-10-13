@@ -5,7 +5,7 @@ import { Interaction } from 'three.interaction';
 // import OrbitControls from 'orbit-controls-es6';
 
 const WIDTH = 16;
-const DEPTH = 20;
+const DEPTH = 30;
 const HEIGHT = 9;
 
 // controls the visuals of our board
