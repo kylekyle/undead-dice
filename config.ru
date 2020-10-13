@@ -71,7 +71,7 @@ class UndeadDice < Roda
       r.get do
         if session['admin'] 
           code = Concode::Generator.new.generate SecureRandom.hex
-          GAMES[code] = new_game()
+          GAMES[code] = UndeadDice.new_game()
           r.redirect code
         else
           view :new
