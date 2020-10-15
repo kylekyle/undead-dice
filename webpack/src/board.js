@@ -47,7 +47,7 @@ export default class {
         scene.add(ambientLight);
 
         const spotLight = new THREE.SpotLight(0xefdfd5);
-        spotLight.position.set(5, 16, 0);
+        spotLight.position.set(-5, 16, 0);
         spotLight.castShadow = true;  
         spotLight.shadow.mapSize.width = 1024;
         spotLight.shadow.mapSize.height = 1024;
