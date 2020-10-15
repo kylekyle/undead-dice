@@ -29,15 +29,6 @@ const addDieToQueue = color => {
 const addDieToScene = specs => {
     const body = die(specs.color, specs.shift);    
     dice[specs.id] = board.add(body);
-
-    dice[specs.id].mesh.on('click', event => {          
-        if (event.data.originalEvent.shiftKey) {
-            console.log(event.target);
-        } else {
-            $.post(location.pathname, { action: 'reroll', id: specs.id })
-        }
-    });
-
     return dice[specs.id];
 }
 
@@ -61,6 +52,14 @@ const freezeDice = () => {
 
                 dice[id].orientation = orientation;
                 dice[id].mesh = mesh;
+
+                dice[id].mesh.on('click', event => {          
+                    if (event.data.originalEvent.shiftKey) {
+                        console.log(event.target);
+                    } else {
+                        $.post(location.pathname, { action: 'reroll', id: id })
+                    }
+                });
             }
 
             $('#nav').show();
