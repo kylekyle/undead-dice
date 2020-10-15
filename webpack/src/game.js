@@ -176,5 +176,7 @@ $('#pull').click(() => {
 });
 
 $('#roll').click(() => {
-    $.post(location.pathname, { action: 'roll' });
+    if ($('.queued').length > 0) {
+        $.post(location.pathname, { action: 'roll' });
+    }
 });
