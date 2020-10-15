@@ -107,10 +107,7 @@ class UndeadDice < Roda
 
       r.is do
         r.get do
-          render :game, locals: { 
-            board: game[:board].to_json, 
-            queue: game[:queue].to_json 
-          }
+          render :game
         end
         
         r.post do
@@ -119,7 +116,6 @@ class UndeadDice < Roda
           when 'reset'
             game[:queue].clear
             game[:board].clear
-            MessageBus.publish("/#{code}", { action: 'reset' })            
 
           when 'pull'
             if game[:queue].size == 3
@@ -128,10 +124,6 @@ class UndeadDice < Roda
 
             color = DICE_BAG.sample
             game[:queue] << color
-
-            MessageBus.publish("/#{code}", {
-              action: 'pull', color: color
-            })
           
           when 'roll'
             newDice = game[:queue].map do |color|
@@ -143,14 +135,8 @@ class UndeadDice < Roda
                 face: rand((0..5))
               }
             end
-            
-            MessageBus.publish "/#{code}", { 
-              action: 'roll', 
-              dice: newDice
-            }
 
             game[:queue].clear
-            r.halt(200, newDice.map {|die| die[:id]})
           
           when 'reroll'
             id = typecast_params.nonempty_str! 'id'
@@ -163,17 +149,14 @@ class UndeadDice < Roda
             game[:queue] << color
             game[:board].delete(id)
 
-            MessageBus.publish "/#{code}", { 
-              action: 'remove', id: id
-            }
-
-            MessageBus.publish "/#{code}", { 
-              action: 'pull', color: color
-            }
-
           else
             r.halt 400, "unreconized action '#{action}'"
           end
+
+          MessageBus.publish("/#{code}", { 
+            board: game[:board],
+            queue: game[:queue]            
+          })
 
           'done'
         end

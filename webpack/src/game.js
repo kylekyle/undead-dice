@@ -5,8 +5,6 @@ import MessageBus from 'message-bus-client';
 import die from './die';
 import Board from './board';
 
-const dice = {};
-const board = new Board();
 const UP = new THREE.Vector3(0,1,0);
 
 const NORMALS = [
@@ -18,151 +16,152 @@ const NORMALS = [
     new THREE.Vector3(0, 0, 1)
 ];
 
-const addDieToQueue = color => {
-    $('#queue').append(
-        $('<div>', { class: 'queued' }).append(
-            $('<i>', { class: 'fa fa-dice-d6' }).css('color', color)
-        )
-    );
-};
+const dice = {};
+const messages = [];
+const board = new Board();
 
-const addDieToScene = specs => {
-    const body = die(specs.color, specs.shift);    
-    dice[specs.id] = board.add(body);
-    return dice[specs.id];
-}
-
-const freezeDice = () => {
-    const done = setInterval(() => {
-        if (Object.values(dice).every(die => die.isStatic || die.sleeping)) {
-            clearInterval(done);
-
-            // all this nonsense is because Oimo has no 
-            // way to make a dynamic body static :-(
-            for (const [id, die] of Object.entries(dice)) {
-                const mesh = die.mesh;
-                const position = mesh.position.toArray();
-                const orientation = die.orientation;
-                
-                die.remove();
-
-                dice[id] = board.add({
-                    size: [1,1,1], pos: position, mesh: null
-                });
-
-                dice[id].orientation = orientation;
-                dice[id].mesh = mesh;
-
-                dice[id].mesh.on('click', event => {          
-                    if (event.data.originalEvent.shiftKey) {
-                        console.log(event.target);
-                    } else {
-                        $.post(location.pathname, { action: 'reroll', id: id })
-                    }
-                });
-            }
-
-            $('#nav').show();
-        }
-    }, 100);
-}
-
-$('script[data-queue]').data('queue').forEach(addDieToQueue);
-
-const state = $('script[data-board]').data('board');
-
-for (const [id, specs] of Object.entries(state)) {
-    specs.shift = 2 - specs.face;
-
-    if (specs.shift < 0) {
-        specs.shift += 6;
-    }
-
-    const body = addDieToScene(specs);
-    body.orientation.setFromEuler(0,Math.random()*180,0)
-    body.position.set(Math.random()*14-7,1,Math.random()*8-4);
-    board.fastForward(100);
-    
-    freezeDice();
-}
+let active = false;
+let processing = false;
 
 MessageBus.baseUrl = `${location.pathname}/`;
 
-MessageBus.subscribe(location.pathname, message => {
-    console.log("Received message:", message);
+setInterval(() => {
+    if (processing) {
+        return; 
+    }
 
-    if (message.action == 'reset') {
-        $('#queue').empty();
-        for(const id in dice) {
+    // disable MessageBus when tab is inactive to work around this: 
+    // https://github.com/discourse/message_bus/issues/238
+    if (active && document.hidden) {
+        active = false;
+        MessageBus.stop();
+        MessageBus.unsubscribe(location.pathname);
+    }
+
+    if (!active && !document.hidden) {
+        active = true;
+        MessageBus.start();
+        MessageBus.subscribe(location.pathname, m => messages.push(m), -2);
+    }
+
+    if (messages.length == 0) {
+        return; 
+    }
+
+    // since messages contain the entire games state, 
+    // we only need the most recent message
+    const message = messages.pop();
+    messages.splice(0, messages.length);
+
+    // update the queue
+    $('#queue').empty();
+
+    message.queue.forEach(color => {
+        $('#queue').append(
+            $('<div>', { class: 'queued' }).append(
+                $('<i>', { class: 'fa fa-dice-d6' }).css('color', color)
+            )
+        );
+    });
+
+    Object.keys(dice).forEach(id => {
+        // this die is already on the board 
+        if (message.board[id]) {
+            delete message.board[id]
+        } 
+        
+        // this die is no longer on the board
+        else {
             board.remove(dice[id]);
             delete dice[id];
         }
-    } else if (message.action == 'pull') {      
-        addDieToQueue(message.color);
-    } else if (message.action == 'roll') {
+    });
+
+    // roll the remaining dice
+    if (Object.keys(message.board).length) {
+        console.log('simulating dice roll');
         $('#nav').hide();
-        $('#queue').empty();
+        processing = true;
+        
+        for (const [id, entry] of Object.entries(message.board)) {
+            const random = seedrandom(id);
 
-        // simulate a roll
-        const simulatedDice = message.dice.map((specs, i) => {
-            console.log('simulating dice roll');
-
-            const random = seedrandom(specs.id);
-            const body = board.add({
+            dice[id] = board.add({
                 size: [1,1,1], pos: [0,-1,0], move: true, mesh: null
             });
 
-            body.position.set(i, 7, 3);
-            body.linearVelocity.set(random()*50-25, 0, random()*50-25);
-            body.angularVelocity.set(random()*10, random()*10, random()*10);
-            
-            return body;
-        });
+            dice[id].position.set(random()*8-4, 7, 3);
+            dice[id].linearVelocity.set(random()*50-25, 0, random()*50-25);
+            dice[id].angularVelocity.set(random()*10, random()*10, random()*10);            
+        }
 
-        const simulation = setInterval(() => {
+        const running = setInterval(() => {
             board.fastForward(100);
 
-            if (simulatedDice.every(die => die.sleeping)) {
-                clearInterval(simulation);
+            if (Object.values(dice).every(die => die.isStatic || die.sleeping)) {
+                clearInterval(running);
                 console.log('simulation complete');
 
-                simulatedDice.forEach((die, i) => {
-                    const specs = message.dice[i];
-                    
+                for (const [id, specs] of Object.entries(message.board)) {
+                    const simulatedDie = dice[id];
+
                     const angles = NORMALS.map(n => 
-                        n.clone().applyQuaternion(die.quaternion).angleTo(UP)
+                        n.clone().applyQuaternion(simulatedDie.quaternion).angleTo(UP)
                     );
                     
                     const upside = angles.indexOf(Math.max(...angles));
-                    specs.shift = upside - specs.face;
+                    let shift = upside - specs.face;
                     
-                    if (specs.shift < 0) {
-                        specs.shift += 6;
+                    if (shift < 0) {
+                        shift += 6;
                     }
 
-                    board.remove(die);
-                });
-                
-                const newDice = message.dice.map((specs, i) => {
-                    const body = addDieToScene(specs);
-                    const random = seedrandom(specs.id);
-                    
-                    body.position.set(i, 7, 3);
-                    body.linearVelocity.set(random()*50-25, 0, random()*50-25);
-                    body.angularVelocity.set(random()*10, random()*10, random()*10);
-                    
-                    return body;
-                });
+                    simulatedDie.remove();
+                    const random = seedrandom(id);
+                    dice[id] = board.add(die(specs.color, shift));
 
-                freezeDice();
+                    dice[id].position.set(random()*8-4, 7, 3);
+                    dice[id].linearVelocity.set(random()*50-25, 0, random()*50-25);
+                    dice[id].angularVelocity.set(random()*10, random()*10, random()*10);
+                }
+
+                const freeze = setInterval(() => {
+                    if (Object.values(dice).every(die => die.isStatic || die.sleeping)) {
+                        clearInterval(freeze);
+            
+                        // all this nonsense is because Oimo has no 
+                        // way to make a dynamic body static :-(
+                        for (const [id, die] of Object.entries(dice)) {
+                            const mesh = die.mesh;
+                            const position = mesh.position.toArray();
+                            const orientation = die.orientation;
+                            
+                            die.remove();
+            
+                            dice[id] = board.add({
+                                size: [1,1,1], pos: position, mesh: null
+                            });
+            
+                            dice[id].orientation = orientation;
+                            dice[id].mesh = mesh;
+            
+                            dice[id].mesh.on('click', event => {          
+                                if (event.data.originalEvent.shiftKey) {
+                                    console.log(event.target);
+                                } else {
+                                    $.post(location.pathname, { action: 'reroll', id: id })
+                                }
+                            });
+                        }
+            
+                        $('#nav').show();
+                        processing = false;
+                    }
+                }, 100);
             }
         }, 100);
-
-    } else if (message.action == 'remove') {
-        board.remove(dice[message.id]);
-        delete dice[message.id];
     }
-});
+}, 250);
 
 $('#reset').click(() => {
     $.post(location.pathname, { action: 'reset' });
