@@ -9,6 +9,15 @@ require 'dotenv/load'
 require 'securerandom'
 
 GAMES = Concurrent::Map.new
+
+Concurrent::TimerTask.new do 
+  GAMES.each do |code,info|
+    GAMES.delete code if info.fetch(:active, Time.now) < 2.weeks.ago
+  end
+end.execute
+
+DICE_BAG = [:red]*3 + [:yellow]*4 + [:green]*6
+
 MessageBus.configure(backend: :memory)
 
 class UndeadDice < Roda
@@ -90,6 +99,7 @@ class UndeadDice < Roda
     r.on GAMES.keys do |code|
       r.message_bus
       game = GAMES[code]
+      game[:active] = Time.now
 
       # this is very probably unecessary, but since two users could
       # modify the game state simultaneously, it seems prudent
@@ -112,19 +122,26 @@ class UndeadDice < Roda
             MessageBus.publish("/#{code}", { action: 'reset' })            
 
           when 'pull'
-            # is there no easy way to do a weighted sample in ruby?!
-            color = ([:red]*3 + [:yellow]*4 + [:green]*6).sample
+            if game[:queue].size == 3
+              r.halt 400, "Can't pull more than 3 dice"
+            end
+
+            color = DICE_BAG.sample
             game[:queue] << color
 
             MessageBus.publish("/#{code}", {
               action: 'pull', color: color
             })
           
-          when 'roll' 
+          when 'roll'
             newDice = game[:queue].map do |color|
               id = SecureRandom.hex
-              game[:board][id] = { color: color }
-              { id: id, color: color }
+
+              game[:board][id] = { 
+                id: id,
+                color: color, 
+                face: rand((0..5))
+              }
             end
             
             MessageBus.publish "/#{code}", { 
@@ -153,15 +170,6 @@ class UndeadDice < Roda
             MessageBus.publish "/#{code}", { 
               action: 'pull', color: color
             }
-
-          when 'diePositionReport'
-            id = typecast_params.nonempty_str! 'id'
-            position = typecast_params.array! :float, 'position'
-            quaternion = typecast_params.array! :float, 'quaternion'
-            r.halt 400 unless game[:board][id]
-
-            game[:board][id][:position] = position
-            game[:board][id][:quaternion] = quaternion
 
           else
             r.halt 400, "unreconized action '#{action}'"

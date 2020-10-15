@@ -5,7 +5,7 @@ import { Interaction } from 'three.interaction';
 // import OrbitControls from 'orbit-controls-es6';
 
 const WIDTH = 16;
-const DEPTH = 30;
+const DEPTH = 16;
 const HEIGHT = 9;
 
 // controls the visuals of our board
@@ -26,6 +26,8 @@ export default class {
 
         // renderer
         const renderer = new THREE.WebGLRenderer();
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         renderer.setSize( window.innerWidth, window.innerHeight );
         $('body').append(renderer.domElement);
 
@@ -47,14 +49,18 @@ export default class {
         const spotLight = new THREE.SpotLight(0xefdfd5);
         spotLight.position.set(5, 16, 0);
         spotLight.castShadow = true;  
+        spotLight.shadow.mapSize.width = 1024;
+        spotLight.shadow.mapSize.height = 1024;
+
         scene.add(spotLight);
 
         // board
-        this.add({size: [WIDTH, 1, HEIGHT] });
-        this.add({size: [WIDTH, DEPTH, 1], pos: [0, 0.5, HEIGHT/2]});
-        this.add({size: [WIDTH, DEPTH, 1], pos: [0, 0.5, -HEIGHT/2]});
-        this.add({size: [HEIGHT+1, DEPTH, 1], pos: [WIDTH/2, 0.5, 0], rot: [0, 90, 0]});
-        this.add({size: [HEIGHT+1, DEPTH, 1], pos: [-WIDTH/2, 0.5, 0], rot: [0, 90, 0]});
+        this.add({size: [WIDTH, 1, HEIGHT] }); 
+        this.add({size: [WIDTH, 1, HEIGHT], pos: [0, DEPTH, 0]}); 
+        this.add({size: [WIDTH, DEPTH, 1], pos: [0, DEPTH/2, HEIGHT/2]}); 
+        this.add({size: [WIDTH, DEPTH, 1], pos: [0, DEPTH/2, -HEIGHT/2]});
+        this.add({size: [HEIGHT+1, DEPTH, 1], pos: [WIDTH/2, DEPTH/2, 0], rot: [0, 90, 0]});
+        this.add({size: [HEIGHT+1, DEPTH, 1], pos: [-WIDTH/2, DEPTH/2, 0], rot: [0, 90, 0]});
 
         // animate
         const animate = () => {
@@ -68,28 +74,44 @@ export default class {
     }
 
     add(specs) {
-        const defaults = { 
-            friction: 0.5,
-            color: 'gray'
+        const body = world.add(specs);
+        body.mesh = specs.mesh;
+
+        // if mesh is null, then this body won't be rendered at all
+        if (body.mesh !== null) {
+
+            // if mesh is undefined, then it's part of the board
+            if (body.mesh === undefined) {
+                specs.friction = 0.5;
+
+                body.mesh = new THREE.Mesh(
+                    new THREE.BoxGeometry(...specs.size), 
+                    new THREE.MeshStandardMaterial({ color: 'gray' }) 
+                )
+            }
+
+            // assign default properties for all meshes
+            body.mesh.receiveShadow = true;
+            body.mesh.position.copy(body.getPosition());
+            body.mesh.quaternion.copy(body.getQuaternion());
+            
+            scene.add(body.mesh);
         }
 
-        specs = Object.assign(defaults, specs);
-        const body = world.add(specs);
-        
-        body.mesh = specs.mesh || new THREE.Mesh(
-            new THREE.BoxGeometry(...specs.size), 
-            new THREE.MeshStandardMaterial({ color: specs.color }) 
-        )
-        
-        body.mesh.position.copy(body.getPosition());
-        body.mesh.quaternion.copy(body.getQuaternion());
-        
-        scene.add(body.mesh);
         return body;
     }
 
     remove(body) {
-        scene.remove(body.mesh);
+        if (body.mesh) {
+            scene.remove(body.mesh);
+        }
+
         body.remove();
+    }
+
+    fastForward(frames) {
+        for(let i=0; i<frames; i++) {
+            world.step();
+        }
     }
 };
