@@ -14,6 +14,15 @@ const scene = new THREE.Scene();
 // controls the physics of our board
 const world = new OIMO.World({ random: false });
 
+const mobile = (() => {
+    try { 
+        document.createEvent("TouchEvent"); 
+        return true; 
+    } catch (e) { 
+        return false; 
+    }
+})();
+
 export default class {
     constructor() {
         // camera
@@ -64,6 +73,10 @@ export default class {
 
         // animate
         const animate = () => {
+            if (mobile) {
+                this.fastForward(1);
+            }
+
             requestAnimationFrame(animate);
             renderer.render(scene, camera);
         }
